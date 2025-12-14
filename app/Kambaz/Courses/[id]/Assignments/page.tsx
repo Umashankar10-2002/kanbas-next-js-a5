@@ -1,101 +1,222 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { useSelector, useDispatch } from "react-redux";
-import type { RootState } from "../../../store";
-import * as client from "../../../client";
-import { setAssignments, editAssignment } from "./reducer";
+import "bootstrap/dist/css/bootstrap.min.css";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+
+type Assignment = {
+  _id: string;
+  title: string;
+  totalPoints: number;
+  earnedPoints: number;
+  closed: boolean;
+  dueDate: string;
+};
+
+function storageKey(courseId: string) {
+  return `kambaz_assignments_${courseId}`;
+}
 
 export default function AssignmentsPage() {
-  const { id } = useParams<{ id: string }>();
-  const dispatch = useDispatch();
+  const router = useRouter();
+  const { id: courseId } = useParams<{ id: string }>();
 
-  const { assignments } = useSelector(
-    (state: RootState) => state.assignmentsReducer
-  );
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [showModal, setShowModal] = useState(false);
 
+  // modal form state
   const [title, setTitle] = useState("");
+  const [totalPoints, setTotalPoints] = useState(100);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const [closed, setClosed] = useState(true);
+  const [dueDate, setDueDate] = useState("");
 
   useEffect(() => {
-    const load = async () => {
-      if (!id) return;
-      const data = await client.findAssignmentsForCourse(id);
-      dispatch(setAssignments(data) as any);
-    };
-    load();
-  }, [id, dispatch]);
+    const raw = localStorage.getItem(storageKey(courseId));
+    setAssignments(raw ? JSON.parse(raw) : []);
+  }, [courseId]);
 
-  const add = async () => {
-    if (!id || !title.trim()) return;
-    const created = await client.createAssignmentForCourse(id, {
-      title: title.trim(),
-      course: id,
-    });
-    dispatch(setAssignments([...assignments, created]) as any);
+  const saveList = (next: Assignment[]) => {
+    setAssignments(next);
+    localStorage.setItem(storageKey(courseId), JSON.stringify(next));
+  };
+
+  const openAddModal = () => {
     setTitle("");
+    setTotalPoints(100);
+    setEarnedPoints(0);
+    setClosed(true);
+    setDueDate("");
+    setShowModal(true);
   };
 
-  const remove = async (assignmentId: string) => {
-    await client.deleteAssignment(assignmentId);
-    dispatch(setAssignments(assignments.filter((a: any) => a._id !== assignmentId)) as any);
+  const saveNewAssignment = () => {
+    if (!title.trim()) return;
+
+    const created: Assignment = {
+      _id: String(Date.now()),
+      title: title.trim(),
+      totalPoints,
+      earnedPoints,
+      closed,
+      dueDate,
+    };
+
+    saveList([...assignments, created]);
+    setShowModal(false);
   };
 
-  const save = async (assignment: any) => {
-    const updated = await client.updateAssignment({ ...assignment, editing: false });
-    dispatch(
-      setAssignments(assignments.map((a: any) => (a._id === updated._id ? updated : a))) as any
-    );
+  const deleteAssignment = (aid: string) => {
+    saveList(assignments.filter((a) => a._id !== aid));
   };
+
+  const percent = (a: Assignment) =>
+    a.totalPoints > 0
+      ? ((a.earnedPoints / a.totalPoints) * 100).toFixed(2)
+      : "";
 
   return (
-    <div className="container mt-3">
-      <h2>Assignments</h2>
+    <div className="container-fluid">
+      <h2 className="mb-3">Assignments</h2>
 
-      <div className="d-flex gap-2 my-3">
-        <input
-          className="form-control"
-          placeholder="New assignment title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <button className="btn btn-danger" onClick={add}>
-          Add
-        </button>
-      </div>
+      <button className="btn btn-danger mb-3" onClick={openAddModal}>
+        Add Assignment
+      </button>
 
-      <ul className="list-group">
-        {assignments.map((a: any) => (
-          <li key={a._id} className="list-group-item d-flex justify-content-between align-items-center">
-            {a.editing ? (
-              <input
-                className="form-control me-3"
-                value={a.title}
-                autoFocus
-                onChange={(e) => {
-                  const newTitle = e.target.value;
-                  dispatch(
-                    setAssignments(assignments.map((x: any) => (x._id === a._id ? { ...x, title: newTitle } : x))) as any
-                  );
-                }}
-                onBlur={() => save(a)}
-                onKeyDown={(e) => e.key === "Enter" && save(a)}
-              />
-            ) : (
-              <span>{a.title}</span>
-            )}
+      {/* List */}
+      <div className="bg-white border rounded">
+        {assignments.map((a, idx) => (
+          <div key={a._id} className={`d-flex p-3 ${idx ? "border-top" : ""}`}>
+            <div
+              style={{
+                width: 4,
+                height: 44,
+                background: "#c8102e",
+                marginRight: 14,
+              }}
+            />
+
+            <div className="flex-grow-1">
+              <div className="fw-semibold">{a.title}</div>
+              <div className="text-muted small">
+                {a.closed ? "Closed" : "Open"} |{" "}
+                {a.dueDate ? `Due ${a.dueDate}` : "No due date"} |{" "}
+                {a.earnedPoints}/{a.totalPoints} pts{" "}
+                {percent(a) && `| ${percent(a)}%`}
+              </div>
+            </div>
 
             <div className="d-flex gap-2">
-              <button className="btn btn-light btn-sm" onClick={() => dispatch(editAssignment(a._id) as any)}>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() =>
+                  router.push(
+                    `/Kambaz/Courses/${courseId}/Assignments/${a._id}`
+                  )
+                }
+              >
                 Edit
               </button>
-              <button className="btn btn-danger btn-sm" onClick={() => remove(a._id)}>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={() => deleteAssignment(a._id)}
+              >
                 Delete
               </button>
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
+
+      {/* ADD MODAL */}
+      {showModal && (
+        <div
+          className="modal d-block"
+          style={{ background: "rgba(0,0,0,0.4)" }}
+        >
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">New Assignment</h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setShowModal(false)}
+                />
+              </div>
+
+              <div className="modal-body">
+                <div className="mb-2">
+                  <label className="fw-bold">Title</label>
+                  <input
+                    className="form-control"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="row">
+                  <div className="col">
+                    <label className="fw-bold">Total Points</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={totalPoints}
+                      onChange={(e) =>
+                        setTotalPoints(Number(e.target.value))
+                      }
+                    />
+                  </div>
+                  <div className="col">
+                    <label className="fw-bold">Points Earned</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={earnedPoints}
+                      onChange={(e) =>
+                        setEarnedPoints(Number(e.target.value))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-2">
+                  <label className="fw-bold">Due Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-check form-switch mt-2">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    checked={closed}
+                    onChange={(e) => setClosed(e.target.checked)}
+                  />
+                  <label className="form-check-label">
+                    {closed ? "Closed" : "Open"}
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button className="btn btn-danger" onClick={saveNewAssignment}>
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
