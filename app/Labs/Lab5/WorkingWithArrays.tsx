@@ -1,7 +1,8 @@
 "use client";
 import React, { useState } from "react";
 
-const REMOTE_SERVER = "http://localhost:4000";
+const REMOTE_SERVER =
+  process.env.NEXT_PUBLIC_HTTP_SERVER || "http://localhost:4000";
 
 export default function WorkingWithArrays() {
   const API = `${REMOTE_SERVER}/lab5/todos`;

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-const REMOTE_SERVER = "http://localhost:4000"; // hard-coded for now
+const REMOTE_SERVER =
+  process.env.NEXT_PUBLIC_HTTP_SERVER || "http://localhost:4000";
 
 export default function QueryParameters() {
   const [a, setA] = useState("34");
