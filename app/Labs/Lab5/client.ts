@@ -1,7 +1,8 @@
 // app/Labs/Lab5/client.ts
 import axios from "axios";
 
-const REMOTE_SERVER = "http://localhost:4000";
+const REMOTE_SERVER =
+  process.env.NEXT_PUBLIC_HTTP_SERVER || "http://localhost:4000";
 
 // ---------- Welcome ----------
 export const fetchWelcomeMessage = async () => {
