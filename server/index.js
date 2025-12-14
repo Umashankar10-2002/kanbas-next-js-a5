@@ -17,24 +17,19 @@ app.use(express.json());
 // ✅ IMPORTANT for Render / reverse proxies
 app.set("trust proxy", 1);
 
-// ✅ Put your Vercel URL here (no trailing slash)
-const VERCEL_URL = process.env.VERCEL_URL || "https://YOUR_VERCEL_URL_HERE";
+// ✅ Your deployed frontend(s)
+const VERCEL_URL = process.env.VERCEL_URL || "https://kanbas-next-js-a5.vercel.app";
 
-// ✅ Allow local dev + deployed frontend(s)
 const allowedOrigins = [
   "http://localhost:3000",
+  "https://kanbas-next-js-a5.vercel.app",
   VERCEL_URL,
 ];
 
-// ✅ CORS (must allow credentials for session cookies)
+// ✅ CORS: do NOT throw errors (throwing can show as 500)
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow Postman / curl (no origin) and allowed sites
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -46,10 +41,10 @@ app.use(
   session({
     secret: process.env.SESSION_SECRET || "kambaz-secret",
     resave: false,
-    saveUninitialized: false, // better for auth: only create session when needed
+    saveUninitialized: false,
     cookie: {
-      secure: isProduction,               // true on https (Render)
-      sameSite: isProduction ? "none" : "lax", // cross-site cookie in prod
+      secure: isProduction, // true on https in production
+      sameSite: isProduction ? "none" : "lax",
     },
   })
 );
